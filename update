@@ -1,0 +1,177 @@
+#!/usr/bin/env nix-shell
+#! nix-shell -p curl jq coreutils -i bash
+# shellcheck shell=bash
+set -euo pipefail
+
+# Update sources.json from a fnox GitHub release.
+#
+#   ./update                  # upstream latest (jdx/fnox)
+#   ./update 1.34.1           # a specific upstream version
+#   FNOX_REPO=alleneubank/fnox ./update 1.34.1-fork.20260901.gabcdef123
+#
+# Release assets are named like upstream's: fnox-<rust-target>.tar.gz with the
+# binary at the archive root. Fork releases also ship checksums.txt; when it is
+# present every download is verified against it before hashing.
+
+RELEASE_TYPE=${1:-latest}
+FNOX_REPO=${FNOX_REPO:-jdx/fnox}
+
+if [[ ! "$FNOX_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+  echo "Error: FNOX_REPO must use the owner/repository form" >&2
+  exit 1
+fi
+if [[ "$RELEASE_TYPE" != "latest" && ! "$RELEASE_TYPE" =~ ^[0-9A-Za-z.+-]+$ ]]; then
+  echo "Error: release version contains unsupported characters" >&2
+  exit 1
+fi
+
+if [[ "$RELEASE_TYPE" == "latest" ]]; then
+  RELEASES_URL="https://api.github.com/repos/$FNOX_REPO/releases/latest"
+else
+  RELEASES_URL="https://api.github.com/repos/$FNOX_REPO/releases/tags/v$RELEASE_TYPE"
+fi
+
+# Upstream publishes every platform below. Fork releases ship a deliberately
+# smaller matrix, selected with a space-delimited FNOX_PLATFORMS value.
+if [[ -n "${FNOX_PLATFORMS:-}" ]]; then
+  read -r -a PLATFORMS <<<"$FNOX_PLATFORMS"
+else
+  PLATFORMS=(
+    "aarch64-darwin"
+    "aarch64-linux"
+    "x86_64-darwin"
+    "x86_64-linux"
+  )
+fi
+if (("${#PLATFORMS[@]}" == 0)); then
+  echo "Error: at least one platform is required" >&2
+  exit 1
+fi
+
+# Mapping from nix system names to fnox's release asset names
+get_asset_name() {
+  local platform=$1
+  case "$platform" in
+  "aarch64-darwin") echo "fnox-aarch64-apple-darwin.tar.gz" ;;
+  "aarch64-linux") echo "fnox-aarch64-unknown-linux-gnu.tar.gz" ;;
+  "x86_64-darwin") echo "fnox-x86_64-apple-darwin.tar.gz" ;;
+  "x86_64-linux") echo "fnox-x86_64-unknown-linux-gnu.tar.gz" ;;
+  *)
+    echo "Error: unsupported platform '$platform'" >&2
+    return 1
+    ;;
+  esac
+}
+
+for cmd in awk curl jq nix-hash sha256sum; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "Error: Required command '$cmd' not found" >&2
+    exit 1
+  fi
+done
+
+AUTH=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+fi
+
+echo "Fetching $RELEASE_TYPE release information from $FNOX_REPO..."
+RELEASE_INFO=$(curl -fsSL "${AUTH[@]}" "$RELEASES_URL")
+
+TAG=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
+if [[ "$TAG" == "null" ]]; then
+  echo "Error: Could not get tag information" >&2
+  exit 1
+fi
+VERSION="${TAG#v}"
+echo "Processing $RELEASE_TYPE release: $TAG (version: $VERSION)"
+
+BASE_URL="https://github.com/$FNOX_REPO/releases/download/$TAG"
+
+# checksums.txt is optional: fork releases ship it, upstream does not.
+CHECKSUMS=""
+if echo "$RELEASE_INFO" | jq -e '.assets[] | select(.name == "checksums.txt")' >/dev/null; then
+  echo "Downloading checksums.txt..."
+  CHECKSUMS=$(curl -fsSL "$BASE_URL/checksums.txt")
+fi
+
+TMP_JSON=$(mktemp)
+archive_file=""
+
+cleanup() {
+  rm -f "$TMP_JSON" "$archive_file" sources.json.new
+}
+trap cleanup EXIT
+
+platforms_json="{}"
+
+for platform in "${PLATFORMS[@]}"; do
+  archive_name=$(get_asset_name "$platform")
+  url="$BASE_URL/$archive_name"
+
+  echo "Processing: $platform ($archive_name)..."
+  echo "Downloading: $url"
+  archive_file=$(mktemp)
+  curl -fsSL -o "$archive_file" "$url"
+
+  actual_sha256=$(sha256sum "$archive_file" | awk '{print $1}')
+  if [[ -n "$CHECKSUMS" ]]; then
+    expected_sha256=$(awk -v archive="$archive_name" '$2 == archive {print $1; exit}' <<<"$CHECKSUMS")
+    if [[ -z "$expected_sha256" ]]; then
+      echo "Error: Could not find checksum for $archive_name" >&2
+      exit 1
+    fi
+    if [[ "$actual_sha256" != "$expected_sha256" ]]; then
+      echo "Error: Checksum mismatch for $archive_name" >&2
+      echo "  Expected: $expected_sha256" >&2
+      echo "  Actual:   $actual_sha256" >&2
+      exit 1
+    fi
+    echo "Checksum verified for $platform"
+  else
+    echo "No checksums.txt in release; recording sha256 $actual_sha256"
+  fi
+
+  hash=$(nix-hash --type sha256 --flat --base32 "$archive_file")
+  rm -f "$archive_file"
+  archive_file=""
+
+  platforms_json=$(
+    jq \
+      --arg platform "$platform" \
+      --arg url "$url" \
+      --arg hash "$hash" \
+      '. + {($platform): {"url": $url, "sha256": $hash}}' \
+      <<<"$platforms_json"
+  )
+done
+
+# For the upstream latest release, update both "latest" and the version key.
+# Fork releases never touch "latest": they are pinned explicitly by consumers.
+if [[ "$RELEASE_TYPE" == "latest" ]]; then
+  jq -n \
+    --arg version "$VERSION" \
+    --arg tag "$TAG" \
+    --argjson platforms "$platforms_json" \
+    '{
+      "latest": {"version": $version, "tag": $tag, "platforms": $platforms},
+      ($version): {"version": $version, "tag": $tag, "platforms": $platforms}
+    }' >"$TMP_JSON"
+else
+  jq -n \
+    --arg version "$VERSION" \
+    --arg tag "$TAG" \
+    --argjson platforms "$platforms_json" \
+    '{($version): {"version": $version, "tag": $tag, "platforms": $platforms}}' >"$TMP_JSON"
+fi
+
+if [[ -f sources.json ]]; then
+  echo "Merging with existing sources.json..."
+  jq -s '.[0] * .[1]' sources.json "$TMP_JSON" >sources.json.new
+  mv sources.json.new sources.json
+else
+  echo "Creating new sources.json..."
+  mv "$TMP_JSON" sources.json
+fi
+
+echo "Updated $RELEASE_TYPE to version $VERSION in sources.json"
