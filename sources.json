@@ -1,23 +1,23 @@
 {
   "latest": {
-    "version": "1.42.0",
-    "tag": "v1.42.0",
+    "version": "1.42.1",
+    "tag": "v1.42.1",
     "platforms": {
       "aarch64-darwin": {
-        "url": "https://github.com/jdx/fnox/releases/download/v1.42.0/fnox-aarch64-apple-darwin.tar.gz",
-        "sha256": "1d43klprkqg06nwcbxv3s7d28gwv1hhwmfjizf8shmspjr9vnz9l"
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-aarch64-apple-darwin.tar.gz",
+        "sha256": "15cbpw3a6cmdxzkakdafdskb1kwj5cbg4dz1dbclk3cmcvh01k86"
       },
       "aarch64-linux": {
-        "url": "https://github.com/jdx/fnox/releases/download/v1.42.0/fnox-aarch64-unknown-linux-gnu.tar.gz",
-        "sha256": "19rzfv5drbdi3w98bkwdk4qfbwrqzxjsghnqid2ax47mzyskw7mw"
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "00371rpnq75jhivhbiq2l0k593vakv4hc2grnpanmh6dn35kmskf"
       },
       "x86_64-darwin": {
-        "url": "https://github.com/jdx/fnox/releases/download/v1.42.0/fnox-x86_64-apple-darwin.tar.gz",
-        "sha256": "0ny4nvms5mma2vvwjdnpwrcla5jfm142ngfnm7wv2l0r4lc10w46"
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-x86_64-apple-darwin.tar.gz",
+        "sha256": "0fv2z3qmlk87m17d7j2ng97323q64ic0cgvwcdq5nz17hph4vpr9"
       },
       "x86_64-linux": {
-        "url": "https://github.com/jdx/fnox/releases/download/v1.42.0/fnox-x86_64-unknown-linux-gnu.tar.gz",
-        "sha256": "13mds0mhx707288jxrrnlgm3vhwwdg5bbhwky8zzh2ahi9k392sg"
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "186qmmghyj94s9ysxx6ygkynzz0x47x5dk9aqknm6vgfwksr2vqw"
       }
     }
   },
@@ -274,6 +274,28 @@
       "x86_64-linux": {
         "url": "https://github.com/jdx/fnox/releases/download/v1.42.0/fnox-x86_64-unknown-linux-gnu.tar.gz",
         "sha256": "13mds0mhx707288jxrrnlgm3vhwwdg5bbhwky8zzh2ahi9k392sg"
+      }
+    }
+  },
+  "1.42.1": {
+    "version": "1.42.1",
+    "tag": "v1.42.1",
+    "platforms": {
+      "aarch64-darwin": {
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-aarch64-apple-darwin.tar.gz",
+        "sha256": "15cbpw3a6cmdxzkakdafdskb1kwj5cbg4dz1dbclk3cmcvh01k86"
+      },
+      "aarch64-linux": {
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "00371rpnq75jhivhbiq2l0k593vakv4hc2grnpanmh6dn35kmskf"
+      },
+      "x86_64-darwin": {
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-x86_64-apple-darwin.tar.gz",
+        "sha256": "0fv2z3qmlk87m17d7j2ng97323q64ic0cgvwcdq5nz17hph4vpr9"
+      },
+      "x86_64-linux": {
+        "url": "https://github.com/jdx/fnox/releases/download/v1.42.1/fnox-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "186qmmghyj94s9ysxx6ygkynzz0x47x5dk9aqknm6vgfwksr2vqw"
       }
     }
   }
